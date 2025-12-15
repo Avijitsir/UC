@@ -23,7 +23,7 @@ let status, userAnswers;
 let isSubmitted = false;
 let currentLang = 'bn'; 
 let timerInterval;
-let durationMins = 90; // ডিফল্ট ৯০ মিনিট
+let durationMins = 90; // ডিফল্ট ৯০
 let timeLeft = durationMins * 60;
 let isPaused = false;
 let filteredIndices = [];
@@ -105,14 +105,14 @@ function shuffleArray(array) {
     return array;
 }
 
-// --- Instructions & Navigation (সংশোধিত: আগের ফরম্যাট ফিরিয়ে আনা হলো) ---
+// --- Instructions & Navigation (অরিজিনাল ফরম্যাট) ---
 const translations = {
     en: {
         title: "General Instructions",
         choose: "Choose Language: ",
         content: `
             <p><strong>Please read the instructions carefully:</strong></p>
-            <p>1. The total duration of the examination is <strong>${durationMins || 90} minutes</strong>.</p>
+            <p>1. The total duration of the examination is <strong>${durationMins} minutes</strong>.</p>
             <p>2. The clock will be set at the server. The countdown timer in the top right corner of screen will display the remaining time available for you to complete the examination.</p>
             <p>3. The Question Palette displayed on the right side of screen will show the status of each question using one of the following symbols:</p>
             <ul class="legend-list">
@@ -132,7 +132,7 @@ const translations = {
         choose: "ভাষা নির্বাচন করুন: ",
         content: `
             <p><strong>অনুগ্রহ করে নির্দেশাবলী পড়ুন:</strong></p>
-            <p>১. পরীক্ষার মোট সময়কাল <strong>${durationMins || 90} মিনিট</strong>।</p>
+            <p>১. পরীক্ষার মোট সময়কাল <strong>${durationMins} মিনিট</strong>।</p>
             <p>২. সার্ভারে ঘড়ি সেট করা থাকবে। স্ক্রিনের উপরের ডানদিকের কোণায় থাকা কাউন্টডাউন টাইমারটি পরীক্ষা শেষ করার জন্য আপনার কাছে বাকি সময় প্রদর্শন করবে।</p>
             <p>৩. স্ক্রিনের ডানদিকে প্রদর্শিত প্রশ্ন প্যালেটটি নিম্নলিখিত চিহ্নগুলির মধ্যে একটি ব্যবহার করে প্রতিটি প্রশ্নের অবস্থা দেখাবে:</p>
             <ul class="legend-list">
@@ -152,8 +152,8 @@ const translations = {
 const langSelector = document.getElementById('langSelector');
 function updateInstructions(lang) {
     const t = translations[lang];
-    // সময় আপডেট করার জন্য content পুনরায় সেট করা
-    const dynamicContent = t.content.replace(`${durationMins || 90}`, durationMins);
+    // সময় আপডেট করার জন্য
+    const dynamicContent = t.content.replaceAll('${durationMins}', durationMins);
     
     document.getElementById('instTitle').innerText = t.title;
     document.getElementById('lblChooseLang').innerText = t.choose;

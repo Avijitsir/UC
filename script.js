@@ -1,27 +1,28 @@
-// --- Questions Database ---
+// --- Questions Database (Default if not loaded) ---
 const questionsSource = [
     {
-      question_bn: "নিম্নলিখিত গ্রন্থিগুলির মধ্যে কোনটি গ্রোথ হরমোন নিঃসরণ করে?",
-      question_en: "Which of the following glands secretes Growth Hormone?",
-      options_bn: ["ডিম্বাশয়", "শুক্রাশয়", "থাইরয়েড গ্রন্থি", "পিটুইটারি গ্রন্থি"],
-      options_en: ["Ovary", "Testis", "Thyroid Gland", "Pituitary Gland"],
-      correctIndex: 3 
-    },
-    {
-      question_bn: "2000 টাকা বার্ষিক 4% সরল সুদে একটি ব্যাঙ্কে জমা রাখলে সুদের হার কত?",
-      question_en: "What is the interest rate if 2000 Rs is deposited at 4% simple interest per annum?",
-      options_bn: ["18%", "10%", "12%", "9%"],
-      options_en: ["18%", "10%", "12%", "9%"],
-      correctIndex: 1 
-    },
-    ...Array.from({ length: 23 }, (_, i) => ({
-        question_bn: `নমুনা প্রশ্ন ${i+3}: এটি বাংলা ইউজার ইন্টারফেস পরীক্ষার জন্য।`,
-        question_en: `Demo Question ${i+3}: This is for testing the English UI.`,
-        options_bn: ["অপশন ক", "অপশন খ", "অপশন গ", "অপশন ঘ"],
-        options_en: ["Option A", "Option B", "Option C", "Option D"],
-        correctIndex: 0
-    }))
+      question_bn: "Demo Question?",
+      question_en: "Demo Question?",
+      options_bn: ["A", "B", "C", "D"],
+      options_en: ["A", "B", "C", "D"],
+      correctIndex: 0 
+    }
 ];
+
+// --- Firebase Config ---
+const firebaseConfig = {
+    apiKey: "AIzaSyDwGzTPmFg-gjoYtNWNJM47p22NfBugYFA",
+    authDomain: "mock-test-1eea6.firebaseapp.com",
+    databaseURL: "https://mock-test-1eea6-default-rtdb.firebaseio.com",
+    projectId: "mock-test-1eea6",
+    storageBucket: "mock-test-1eea6.firebaseapp.com",
+    messagingSenderId: "111849173136",
+    appId: "1:111849173136:web:8b211f58d854119e88a815",
+    measurementId: "G-5RLWPTP8YD"
+};
+
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
 
 function shuffleArray(array) {
     for (let i = array.length - 1; i > 0; i--) {
@@ -38,13 +39,13 @@ let status, userAnswers;
 let isSubmitted = false;
 let currentLang = 'bn'; 
 let timerInterval;
-let timeLeft = 90 * 60;
+let timeLeft = 90 * 60; // Default 90 mins
 let isPaused = false;
 let filteredIndices = [];
 
 // --- Init ---
-function initQuestions() {
-    let tempQuestions = JSON.parse(JSON.stringify(questionsSource));
+function initQuestions(sourceData) {
+    let tempQuestions = JSON.parse(JSON.stringify(sourceData));
     tempQuestions.forEach(q => {
         let indices = [0, 1, 2, 3];
         shuffleArray(indices);
@@ -63,52 +64,81 @@ function initQuestions() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    initQuestions();
-    status = new Array(questions.length).fill(0); 
-    userAnswers = new Array(questions.length).fill(null); 
-    updateInstructions('en');
+    // 1. Get Quiz ID
+    const urlParams = new URLSearchParams(window.location.search);
+    const quizId = urlParams.get('id');
+
+    if (quizId) {
+        document.getElementById('instContent').innerHTML = "Loading Quiz...";
+        loadQuizFromFirebase(quizId);
+    } else {
+        alert("URL Error: No Quiz ID found.");
+    }
 });
 
-// --- Detailed Instructions ---
+function loadQuizFromFirebase(quizId) {
+    database.ref('quizzes/' + quizId).once('value').then((snapshot) => {
+        const data = snapshot.val();
+        
+        if (data && data.questions) {
+            // Process questions from Admin format
+            const processedQuestions = data.questions.map(q => {
+                let correctIdx = q.options.indexOf(q.answer);
+                if (correctIdx === -1) correctIdx = 0; 
+                return {
+                    question_bn: q.question, 
+                    question_en: q.question, 
+                    options_bn: q.options,
+                    options_en: q.options,
+                    correctIndex: correctIdx
+                };
+            });
+
+            initQuestions(processedQuestions);
+            
+            // Set Title & Time
+            if(data.title) {
+                document.getElementById('instTitle').innerText = data.title + " - Instructions";
+            }
+            if(data.duration) {
+                timeLeft = parseInt(data.duration) * 60;
+            }
+
+            // Setup UI
+            status = new Array(questions.length).fill(0); 
+            userAnswers = new Array(questions.length).fill(null); 
+            updateInstructions('en');
+            
+        } else {
+            alert("Quiz not found.");
+        }
+    });
+}
+
+// --- Instructions ---
 const translations = {
     en: {
-        title: "General Instructions",
-        choose: "Choose Language: ",
+        title: "Instructions",
+        choose: "Language: ",
         content: `
-            <p><strong>Please read the instructions carefully:</strong></p>
-            <p>1. The total duration of the examination is <strong>90 minutes</strong>.</p>
-            <p>2. The clock will be set at the server. The countdown timer in the top right corner of screen will display the remaining time available for you to complete the examination.</p>
-            <p>3. The Question Palette displayed on the right side of screen will show the status of each question using one of the following symbols:</p>
-            <ul class="legend-list">
-                <li><span class="dot-icon not-visited"></span> You have not visited the question yet.</li>
-                <li><span class="dot-icon not-answered"></span> You have not answered the question.</li>
-                <li><span class="dot-icon answered"></span> You have answered the question.</li>
-                <li><span class="dot-icon marked"></span> You have NOT answered the question but have marked the question for review.</li>
-                <li><span class="dot-icon marked-ans"></span> The question(s) "Answered and Marked for Review" will be considered for evaluation.</li>
-            </ul>
-            <p>4. To answer a question, click on the option you want to select.</p>
+            <p><strong>Please read carefully:</strong></p>
+            <p>1. Total duration is set by Admin.</p>
+            <p>2. +1 for Correct, -0.33 for Wrong.</p>
+            <p>3. Click options to answer.</p>
         `,
-        declaration: "I have read and understood the instructions. I agree that in case of not adhering to the instructions, I shall be liable to be debarred from this Test.",
+        declaration: "I have read and understood.",
         btn: "I am ready to begin"
     },
     bn: {
-        title: "সাধারণ নির্দেশাবলী",
-        choose: "ভাষা নির্বাচন করুন: ",
+        title: "নির্দেশাবলী",
+        choose: "ভাষা: ",
         content: `
-            <p><strong>অনুগ্রহ করে নির্দেশাবলী পড়ুন:</strong></p>
-            <p>১. পরীক্ষার মোট সময়কাল <strong>৯০ মিনিট</strong>।</p>
-            <p>২. সার্ভারে ঘড়ি সেট করা থাকবে। স্ক্রিনের উপরের ডানদিকের কোণায় থাকা কাউন্টডাউন টাইমারটি পরীক্ষা শেষ করার জন্য আপনার কাছে বাকি সময় প্রদর্শন করবে।</p>
-            <p>৩. স্ক্রিনের ডানদিকে প্রদর্শিত প্রশ্ন প্যালেটটি নিম্নলিখিত চিহ্নগুলির মধ্যে একটি ব্যবহার করে প্রতিটি প্রশ্নের অবস্থা দেখাবে:</p>
-            <ul class="legend-list">
-                <li><span class="dot-icon not-visited"></span> আপনি এখনও প্রশ্নটি দেখেননি।</li>
-                <li><span class="dot-icon not-answered"></span> আপনি প্রশ্নটির উত্তর দেননি।</li>
-                <li><span class="dot-icon answered"></span> আপনি প্রশ্নটির উত্তর দিয়েছেন।</li>
-                <li><span class="dot-icon marked"></span> আপনি উত্তর দেননি কিন্তু পর্যালোচনার জন্য চিহ্নিত করেছেন।</li>
-                <li><span class="dot-icon marked-ans"></span> উত্তর দেওয়া এবং পর্যালোচনার জন্য চিহ্নিত প্রশ্নগুলি মূল্যায়নের জন্য বিবেচনা করা হবে।</li>
-            </ul>
-            <p>৪. উত্তর দিতে, আপনার পছন্দের অপশনে ক্লিক করুন।</p>
+            <p><strong>মনোযোগ দিয়ে পড়ুন:</strong></p>
+            <p>১. সময়সীমা অ্যাডমিন দ্বারা নির্ধারিত।</p>
+            <p>২. সঠিক উত্তরে +১, ভুল উত্তরে -০.৩৩।</p>
+            <p>৩. উত্তর দিতে অপশনে ক্লিক করুন।</p>
         `,
-        declaration: "আমি নির্দেশাবলী পড়েছি এবং বুঝেছি। আমি সম্মত যে নির্দেশাবলী মেনে না চললে, আমাকে এই পরীক্ষা থেকে বাদ দেওয়া হতে পারে।",
+        declaration: "আমি নির্দেশাবলী পড়েছি।",
         btn: "আমি শুরু করতে প্রস্তুত"
     }
 };
@@ -116,7 +146,10 @@ const translations = {
 const langSelector = document.getElementById('langSelector');
 function updateInstructions(lang) {
     const t = translations[lang];
-    document.getElementById('instTitle').innerText = t.title;
+    // Keep dynamic title
+    const currentTitle = document.getElementById('instTitle').innerText;
+    if(currentTitle.includes("General")) document.getElementById('instTitle').innerText = t.title;
+    
     document.getElementById('lblChooseLang').innerText = t.choose;
     document.getElementById('instContent').innerHTML = t.content;
     document.getElementById('agreeLabel').innerText = t.declaration;
@@ -144,7 +177,6 @@ function loadQuestion(index) {
     const container = document.getElementById('optionsContainer');
     container.innerHTML = '';
     
-    // Reset Button Text to Standard
     document.getElementById('saveNextBtn').innerText = "Save & Next";
 
     opts.forEach((opt, i) => {
@@ -158,7 +190,11 @@ function loadQuestion(index) {
 }
 function getSelIdx() { const s = document.querySelector('.option-row.selected'); return s ? Array.from(s.parentNode.children).indexOf(s) : null; }
 document.getElementById('markReviewBtn').addEventListener('click', () => { if(isPaused) return; const i = getSelIdx(); if(i!==null){ userAnswers[currentIdx]=i; status[currentIdx]=4; } else status[currentIdx]=3; nextQ(); });
-document.getElementById('saveNextBtn').addEventListener('click', () => { if(isPaused) return; const i = getSelIdx(); if(i!==null){ userAnswers[currentIdx]=i; status[currentIdx]=2; } else status[currentIdx]=1; nextQ(); });
+document.getElementById('saveNextBtn').addEventListener('click', () => { 
+    if(isPaused) return; const i = getSelIdx(); 
+    if(i!==null){ userAnswers[currentIdx]=i; status[currentIdx]=2; } else status[currentIdx]=1; 
+    nextQ(); 
+});
 document.getElementById('clearResponseBtn').addEventListener('click', () => { if(isPaused) return; document.querySelectorAll('.option-row').forEach(r => r.classList.remove('selected')); userAnswers[currentIdx]=null; status[currentIdx]=1; });
 function nextQ() { if(currentIdx < questions.length - 1) loadQuestion(currentIdx + 1); else openDrawer(); }
 
@@ -189,11 +225,15 @@ pauseMsg.style.cssText = "position:absolute; top:50%; left:50%; transform:transl
 document.querySelector('.content-area').parentElement.appendChild(pauseMsg);
 function startTimer() {
     clearInterval(timerInterval);
+    // Initial display
+    let m = parseInt(timeLeft / 60), s = parseInt(timeLeft % 60);
+    document.getElementById('timerDisplay').innerText = `${m}:${s<10?'0'+s:s}`;
+    
     timerInterval = setInterval(() => {
         if(timeLeft <= 0) { clearInterval(timerInterval); submitTest(); return; }
-        let m = parseInt(timeLeft / 60), s = parseInt(timeLeft % 60);
-        document.getElementById('timerDisplay').innerText = `${m}:${s<10?'0'+s:s}`;
         timeLeft--;
+        m = parseInt(timeLeft / 60); s = parseInt(timeLeft % 60);
+        document.getElementById('timerDisplay').innerText = `${m}:${s<10?'0'+s:s}`;
     }, 1000);
 }
 document.getElementById('pauseBtn').addEventListener('click', () => {
@@ -208,7 +248,7 @@ document.getElementById('pauseBtn').addEventListener('click', () => {
     }
 });
 
-// --- SUBMIT & RESULT LOGIC ---
+// --- SUBMIT & RESULT ---
 function submitTest() {
     if(isSubmitted) return;
     isSubmitted = true;

@@ -1,4 +1,6 @@
-// --- 1. Firebase Config (Admin এর মতই) ---
+// script.js
+
+// --- 1. Firebase Config ---
 const firebaseConfig = {
     apiKey: "AIzaSyDwGzTPmFg-gjoYtNWNJM47p22NfBugYFA",
     authDomain: "mock-test-1eea6.firebaseapp.com",
@@ -10,7 +12,6 @@ const firebaseConfig = {
     measurementId: "G-5RLWPTP8YD"
 };
 
-// ফায়ারবেস ইনিশিয়ালাইজেশন চেক
 if (typeof firebase !== 'undefined' && !firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
@@ -22,20 +23,19 @@ let status, userAnswers;
 let isSubmitted = false;
 let currentLang = 'bn'; 
 let timerInterval;
-let timeLeft = 90 * 60; // ডিফল্ট (ডাটাবেস থেকে আপডেট হবে)
+let durationMins = 90; // ডিফল্ট ৯০ মিনিট
+let timeLeft = durationMins * 60;
 let isPaused = false;
 let filteredIndices = [];
 
 // --- Init & Data Loading ---
 document.addEventListener('DOMContentLoaded', () => {
-    // URL থেকে ID চেক করা
     const urlParams = new URLSearchParams(window.location.search);
     const quizId = urlParams.get('id');
 
     if (quizId && typeof firebase !== 'undefined') {
         loadQuizFromFirebase(quizId);
     } else {
-        // ID না থাকলে বা ফায়ারবেস না পেলে ডেমো ডাটা
         loadLocalDemoData();
     }
 });
@@ -46,27 +46,23 @@ function loadQuizFromFirebase(id) {
     db.ref('quizzes/' + id).once('value').then((snapshot) => {
         const data = snapshot.val();
         if (data) {
-            // ১. টাইমার সেট করা (ডাটাবেস থেকে)
+            // ১. টাইমার সেট করা
             if (data.duration) {
-                timeLeft = parseInt(data.duration) * 60;
-                document.getElementById('timerDisplay').innerText = `${data.duration}:00`;
+                durationMins = parseInt(data.duration);
+                timeLeft = durationMins * 60;
+                document.getElementById('timerDisplay').innerText = `${durationMins}:00`;
             }
 
-            // ২. প্রশ্ন কনভার্ট করা (Admin ফরম্যাট থেকে Client ফরম্যাটে)
+            // ২. প্রশ্ন লোড করা
             let fetchedQuestions = data.questions || [];
-            
-            // শাফলিং (Shuffle)
             fetchedQuestions = shuffleArray(fetchedQuestions);
 
-            // ফরম্যাটিং
             questions = fetchedQuestions.map(q => {
-                // Admin প্যানেলে যেহেতু এক ভাষাতেই সেভ হয়, তাই দুটো ভাষাতেই একই টেক্সট রাখা হলো
                 return {
                     question_bn: q.question,
                     question_en: q.question, 
                     options_bn: q.options,
                     options_en: q.options,
-                    // উত্তর স্ট্রিং এর বদলে ইনডেক্স বের করা
                     correctIndex: q.options.indexOf(q.answer) !== -1 ? q.options.indexOf(q.answer) : 0
                 };
             });
@@ -109,19 +105,26 @@ function shuffleArray(array) {
     return array;
 }
 
-// --- Instructions & Navigation ---
+// --- Instructions & Navigation (সংশোধিত: আগের ফরম্যাট ফিরিয়ে আনা হলো) ---
 const translations = {
     en: {
         title: "General Instructions",
         choose: "Choose Language: ",
         content: `
             <p><strong>Please read the instructions carefully:</strong></p>
-            <p>1. Total questions: ${questions.length || 0}.</p>
-            <p>2. The clock will be set at the server. The countdown timer in the top right corner will display remaining time.</p>
-            <p>3. Marking Scheme: Correct (+1), Wrong (-0.33).</p>
-            <p>4. Click 'Save & Next' to save your answer.</p>
+            <p>1. The total duration of the examination is <strong>${durationMins || 90} minutes</strong>.</p>
+            <p>2. The clock will be set at the server. The countdown timer in the top right corner of screen will display the remaining time available for you to complete the examination.</p>
+            <p>3. The Question Palette displayed on the right side of screen will show the status of each question using one of the following symbols:</p>
+            <ul class="legend-list">
+                <li><span class="dot-icon not-visited"></span> You have not visited the question yet.</li>
+                <li><span class="dot-icon not-answered"></span> You have not answered the question.</li>
+                <li><span class="dot-icon answered"></span> You have answered the question.</li>
+                <li><span class="dot-icon marked"></span> You have NOT answered the question but have marked the question for review.</li>
+                <li><span class="dot-icon marked-ans"></span> The question(s) "Answered and Marked for Review" will be considered for evaluation.</li>
+            </ul>
+            <p>4. To answer a question, click on the option you want to select.</p>
         `,
-        declaration: "I have read and understood the instructions.",
+        declaration: "I have read and understood the instructions. I agree that in case of not adhering to the instructions, I shall be liable to be debarred from this Test.",
         btn: "I am ready to begin"
     },
     bn: {
@@ -129,12 +132,19 @@ const translations = {
         choose: "ভাষা নির্বাচন করুন: ",
         content: `
             <p><strong>অনুগ্রহ করে নির্দেশাবলী পড়ুন:</strong></p>
-            <p>১. মোট প্রশ্ন: ${questions.length || 0} টি।</p>
-            <p>২. স্ক্রিনের উপরের ডানদিকের কোণায় থাকা টাইমারটি বাকি সময় প্রদর্শন করবে।</p>
-            <p>৩. মার্কিং: সঠিক (+১), ভুল (-০.৩৩)।</p>
-            <p>৪. উত্তর সেভ করতে 'Save & Next' এ ক্লিক করুন।</p>
+            <p>১. পরীক্ষার মোট সময়কাল <strong>${durationMins || 90} মিনিট</strong>।</p>
+            <p>২. সার্ভারে ঘড়ি সেট করা থাকবে। স্ক্রিনের উপরের ডানদিকের কোণায় থাকা কাউন্টডাউন টাইমারটি পরীক্ষা শেষ করার জন্য আপনার কাছে বাকি সময় প্রদর্শন করবে।</p>
+            <p>৩. স্ক্রিনের ডানদিকে প্রদর্শিত প্রশ্ন প্যালেটটি নিম্নলিখিত চিহ্নগুলির মধ্যে একটি ব্যবহার করে প্রতিটি প্রশ্নের অবস্থা দেখাবে:</p>
+            <ul class="legend-list">
+                <li><span class="dot-icon not-visited"></span> আপনি এখনও প্রশ্নটি দেখেননি।</li>
+                <li><span class="dot-icon not-answered"></span> আপনি প্রশ্নটির উত্তর দেননি।</li>
+                <li><span class="dot-icon answered"></span> আপনি প্রশ্নটির উত্তর দিয়েছেন।</li>
+                <li><span class="dot-icon marked"></span> আপনি উত্তর দেননি কিন্তু পর্যালোচনার জন্য চিহ্নিত করেছেন।</li>
+                <li><span class="dot-icon marked-ans"></span> উত্তর দেওয়া এবং পর্যালোচনার জন্য চিহ্নিত প্রশ্নগুলি মূল্যায়নের জন্য বিবেচনা করা হবে।</li>
+            </ul>
+            <p>৪. উত্তর দিতে, আপনার পছন্দের অপশনে ক্লিক করুন।</p>
         `,
-        declaration: "আমি নির্দেশাবলী পড়েছি এবং বুঝেছি।",
+        declaration: "আমি নির্দেশাবলী পড়েছি এবং বুঝেছি। আমি সম্মত যে নির্দেশাবলী মেনে না চললে, আমাকে এই পরীক্ষা থেকে বাদ দেওয়া হতে পারে।",
         btn: "আমি শুরু করতে প্রস্তুত"
     }
 };
@@ -142,10 +152,12 @@ const translations = {
 const langSelector = document.getElementById('langSelector');
 function updateInstructions(lang) {
     const t = translations[lang];
-    const content = t.content.replace(`${questions.length || 0}`, questions.length);
+    // সময় আপডেট করার জন্য content পুনরায় সেট করা
+    const dynamicContent = t.content.replace(`${durationMins || 90}`, durationMins);
+    
     document.getElementById('instTitle').innerText = t.title;
     document.getElementById('lblChooseLang').innerText = t.choose;
-    document.getElementById('instContent').innerHTML = content;
+    document.getElementById('instContent').innerHTML = dynamicContent;
     document.getElementById('agreeLabel').innerText = t.declaration;
     document.getElementById('startTestBtn').innerText = t.btn;
 }
@@ -217,9 +229,7 @@ function nextQ() { if(currentIdx < questions.length - 1) loadQuestion(currentIdx
 // --- Drawer & Palette ---
 const drawer = document.getElementById('paletteSheet');
 document.querySelector('.menu-icon').addEventListener('click', () => { renderPalette(); drawer.classList.add('open'); document.getElementById('sheetOverlay').style.display='block'; });
-
 function openDrawer() { renderPalette(); drawer.classList.add('open'); document.getElementById('sheetOverlay').style.display='block'; }
-
 function closeDrawer() { drawer.classList.remove('open'); setTimeout(()=>document.getElementById('sheetOverlay').style.display='none', 300); }
 document.getElementById('closeSheetBtn').addEventListener('click', closeDrawer);
 document.getElementById('sheetOverlay').addEventListener('click', closeDrawer);

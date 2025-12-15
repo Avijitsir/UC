@@ -14,8 +14,9 @@ if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
 // Elements
-const quizIdInput = document.getElementById('quiz-id-input');
-const quizTitleInput = document.getElementById('quiz-title-input');
+const qIdIn = document.getElementById('quiz-id-input');
+const qTitIn = document.getElementById('quiz-title-input');
+const qTimeIn = document.getElementById('quiz-duration'); // New Time Input
 const loadQuizBtn = document.getElementById('load-quiz-btn');
 const subjectSelect = document.getElementById('question-subject-select');
 
@@ -145,14 +146,24 @@ function render() {
 }
 
 function saveFirebase() {
-    const id = quizIdInput.value.trim();
-    const title = quizTitleInput.value.trim();
-    if(!id || !title || questions.length===0) { show("ID, Title এবং প্রশ্ন দিন", "error"); return; }
+    const id = qIdIn.value.trim();
+    const title = qTitIn.value.trim();
+    const dur = qTimeIn.value.trim(); // Get duration
+
+    if(!id || !title || !dur || questions.length===0) { 
+        show("ID, Title, সময় এবং প্রশ্ন দিন", "error"); return; 
+    }
 
     show("সেভ হচ্ছে...", "success");
-    database.ref('quizzes/'+id).set({ title: title, questions: questions })
-        .then(() => { show("সফল!", "success"); genLink(id); })
-        .catch(e => show("Error: "+e.message, "error"));
+    
+    database.ref('quizzes/'+id).set({
+        title: title,
+        duration: dur, // Save duration
+        questions: questions
+    }).then(() => {
+        show("সফল! কুইজ সেভ হয়েছে।", "success");
+        genLink(id);
+    }).catch(e => show("Error: "+e.message, "error"));
 }
 
 function genLink(id) {
@@ -167,17 +178,27 @@ function copyToClipboard() {
 }
 
 function loadFirebase() {
-    const id = quizIdInput.value.trim();
+    const id = qIdIn.value.trim();
     if(!id) { show("ID দিন", "error"); return; }
+    
     linkBox.style.display='none';
     database.ref('quizzes/'+id).once('value').then(s => {
         const d = s.val();
-        if(d) { quizTitleInput.value=d.title; questions=d.questions||[]; render(); show("লোড হয়েছে", "success"); }
-        else show("পাওয়া যায়নি", "error");
+        if(d) {
+            qTitIn.value = d.title;
+            if(d.duration) qTimeIn.value = d.duration; // Load duration
+            questions = d.questions || [];
+            render();
+            show("লোড হয়েছে", "success");
+        } else {
+            show("পাওয়া যায়নি", "error");
+        }
     });
 }
 
 function show(m, t) {
-    statusMsg.innerText = m; statusMsg.className = t; statusMsg.style.display='block';
+    statusMsg.innerText = m;
+    statusMsg.className = t;
+    statusMsg.style.display = 'block';
     setTimeout(()=>statusMsg.style.display='none', 3000);
 }

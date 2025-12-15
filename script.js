@@ -18,15 +18,17 @@ if (typeof firebase !== 'undefined' && !firebase.apps.length) {
 
 // --- Globals ---
 let questions = [];
+let allQuestions = []; // সব প্রশ্ন এখানে থাকবে
 let currentIdx = 0;
 let status, userAnswers;
 let isSubmitted = false;
 let currentLang = 'bn'; 
 let timerInterval;
-let durationMins = 90; // ডিফল্ট ৯০
+let durationMins = 90; 
 let timeLeft = durationMins * 60;
 let isPaused = false;
 let filteredIndices = [];
+let activeSubject = 'All'; // বর্তমানে কোন সাবজেক্ট সিলেক্টেড
 
 // --- Init & Data Loading ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -46,19 +48,19 @@ function loadQuizFromFirebase(id) {
     db.ref('quizzes/' + id).once('value').then((snapshot) => {
         const data = snapshot.val();
         if (data) {
-            // ১. টাইমার সেট করা
             if (data.duration) {
                 durationMins = parseInt(data.duration);
                 timeLeft = durationMins * 60;
                 document.getElementById('timerDisplay').innerText = `${durationMins}:00`;
             }
 
-            // ২. প্রশ্ন লোড করা
             let fetchedQuestions = data.questions || [];
-            fetchedQuestions = shuffleArray(fetchedQuestions);
-
-            questions = fetchedQuestions.map(q => {
+            
+            // ডাটা প্রসেস করা
+            allQuestions = fetchedQuestions.map((q, index) => {
                 return {
+                    originalIndex: index, // আসল ইনডেক্স মনে রাখা
+                    subject: q.subject || "General", // সাবজেক্ট না থাকলে General
                     question_bn: q.question,
                     question_en: q.question, 
                     options_bn: q.options,
@@ -66,8 +68,14 @@ function loadQuizFromFirebase(id) {
                     correctIndex: q.options.indexOf(q.answer) !== -1 ? q.options.indexOf(q.answer) : 0
                 };
             });
-
+            
+            // সব প্রশ্নকে মেইন অ্যারেতে রাখা (ডিফল্ট)
+            questions = allQuestions; 
+            
+            // ট্যাব জেনারেট করা
+            generateSubjectTabs();
             startQuizSetup();
+
         } else {
             alert("Quiz not found!");
         }
@@ -78,24 +86,81 @@ function loadQuizFromFirebase(id) {
 }
 
 function loadLocalDemoData() {
+    // ডেমো ডাটা
     const questionsSource = [
-        {
-          question_bn: "ডেমো প্রশ্ন: নিম্নলিখিত গ্রন্থিগুলির মধ্যে কোনটি গ্রোথ হরমোন নিঃসরণ করে?",
-          question_en: "Which of the following glands secretes Growth Hormone?",
-          options_bn: ["ডিম্বাশয়", "শুক্রাশয়", "থাইরয়েড গ্রন্থি", "পিটুইটারি গ্রন্থি"],
-          options_en: ["Ovary", "Testis", "Thyroid Gland", "Pituitary Gland"],
-          correctIndex: 3 
-        }
+        { subject: "Life Science", question_bn: "ডেমো প্রশ্ন ১", options_bn: ["A", "B", "C", "D"], correctIndex: 0 },
+        { subject: "History", question_bn: "ডেমো প্রশ্ন ২", options_bn: ["A", "B", "C", "D"], correctIndex: 1 }
     ];
-    questions = shuffleArray(JSON.parse(JSON.stringify(questionsSource)));
+    allQuestions = questionsSource;
+    questions = allQuestions;
+    generateSubjectTabs();
     startQuizSetup();
 }
 
+// --- Dynamic Tabs Logic ---
+function generateSubjectTabs() {
+    const container = document.getElementById('sectionTabsContainer');
+    if(!container) return;
+    container.innerHTML = ''; // আগের সব মুছে ফেলা
+
+    // ১. সব ইউনিক সাবজেক্ট বের করা
+    const subjects = ['All', ...new Set(allQuestions.map(q => q.subject))];
+
+    // ২. যদি মাত্র ১টি সাবজেক্ট থাকে (যেমন শুধু History), তাহলে ট্যাব দেখানোর দরকার নেই
+    if (subjects.length <= 2) { // 'All' + 'History' = 2
+        container.style.display = 'none';
+        return;
+    } else {
+        container.style.display = 'flex';
+    }
+
+    // ৩. বাটন তৈরি করা
+    subjects.forEach(sub => {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.innerText = sub;
+        if (sub === 'All') chip.classList.add('active');
+
+        chip.onclick = () => filterBySubject(sub);
+        container.appendChild(chip);
+    });
+}
+
+function filterBySubject(subject) {
+    activeSubject = subject;
+    
+    // ১. ট্যাব এক্টিভ করা
+    document.querySelectorAll('.chip').forEach(c => {
+        c.classList.remove('active');
+        if(c.innerText === subject) c.classList.add('active');
+    });
+
+    // ২. প্রশ্ন ফিল্টার করা (এটা একটু ট্রিকি, আমরা শুধু ভিউ চেঞ্জ করব না, জাম্প করব)
+    // পরীক্ষায় সাধারণত ফিল্টার করলে শুধু ওই সাবজেক্টের প্রশ্ন আসে না, বরং ওই সাবজেক্টের প্রথম প্রশ্নে জাম্প করে।
+    // আমরা সহজ করার জন্য ওই সাবজেক্টের প্রথম প্রশ্নে নিয়ে যাব।
+    
+    if (subject === 'All') {
+        // কিছু করার দরকার নেই
+    } else {
+        const firstQIndex = questions.findIndex(q => q.subject === subject);
+        if (firstQIndex !== -1) {
+            loadQuestion(firstQIndex);
+        } else {
+            alert("No questions in this section!");
+        }
+    }
+}
+
 function startQuizSetup() {
+    // স্ট্যাটাস অ্যারে মেইন প্রশ্ন সংখ্যার সমান হতে হবে
     status = new Array(questions.length).fill(0); 
     userAnswers = new Array(questions.length).fill(null); 
     updateInstructions('en'); 
 }
+
+// --- বাকি সব ফাংশন আগের মতোই ---
+// (এখানে আগের কোডগুলো যেমন shuffleArray, updateInstructions, loadQuestion, Timer, Submit সব একই থাকবে)
+// শুধু loadQuestion ফাংশনে একটু আপডেট দরকার যাতে সাবজেক্ট দেখা যায়।
 
 function shuffleArray(array) {
     for (let i = array.length - 1; i > 0; i--) {
@@ -105,7 +170,6 @@ function shuffleArray(array) {
     return array;
 }
 
-// --- Instructions & Navigation (অরিজিনাল ফরম্যাট) ---
 const translations = {
     en: {
         title: "General Instructions",
@@ -152,9 +216,7 @@ const translations = {
 const langSelector = document.getElementById('langSelector');
 function updateInstructions(lang) {
     const t = translations[lang];
-    // সময় আপডেট করার জন্য
     const dynamicContent = t.content.replaceAll('${durationMins}', durationMins);
-    
     document.getElementById('instTitle').innerText = t.title;
     document.getElementById('lblChooseLang').innerText = t.choose;
     document.getElementById('instContent').innerHTML = dynamicContent;
@@ -172,7 +234,7 @@ document.getElementById('startTestBtn').addEventListener('click', () => {
     startTimer();
 });
 
-// --- Quiz Display Logic ---
+// --- Quiz Display ---
 document.getElementById('quizLangSelect').addEventListener('change', (e) => { currentLang = e.target.value; loadQuestion(currentIdx); });
 
 function loadQuestion(index) {
@@ -181,6 +243,16 @@ function loadQuestion(index) {
     document.getElementById('currentQNum').innerText = index + 1;
     const q = questions[index];
     
+    // সাবজেক্ট আপডেট করা (যদি ইউজার ম্যানুয়ালি নেক্সট করে অন্য সাবজেক্টে যায়, ট্যাব আপডেট হবে)
+    if(q.subject && document.getElementById('sectionTabsContainer').style.display !== 'none') {
+        document.querySelectorAll('.chip').forEach(c => {
+           if(c.innerText === q.subject) {
+               document.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));
+               c.classList.add('active');
+           }
+        });
+    }
+
     document.getElementById('questionTextBox').innerText = currentLang === 'bn' ? (q.question_bn || q.question) : (q.question_en || q.question);
     const opts = currentLang === 'bn' ? (q.options_bn || q.options) : (q.options_en || q.options);
     

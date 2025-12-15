@@ -16,7 +16,7 @@ const database = firebase.database();
 // Elements
 const quizIdInput = document.getElementById('quiz-id-input');
 const quizTitleInput = document.getElementById('quiz-title-input');
-const quizDurationInput = document.getElementById('quiz-duration-input'); // নতুন: টাইম ইনপুট
+const quizDurationInput = document.getElementById('quiz-duration-input');
 const loadQuizBtn = document.getElementById('load-quiz-btn');
 const subjectSelect = document.getElementById('question-subject-select');
 
@@ -143,17 +143,19 @@ function render() {
         `;
         qContainer.appendChild(div);
     });
+
+    // নতুন যোগ করা লাইন: ম্যাথ রেন্ডার করার জন্য
+    if(window.MathJax) { MathJax.typeset(); }
 }
 
 function saveFirebase() {
     const id = quizIdInput.value.trim();
     const title = quizTitleInput.value.trim();
-    const duration = quizDurationInput.value.trim(); // আপডেট: সময় নেওয়া হলো
+    const duration = quizDurationInput.value.trim();
 
     if(!id || !title || questions.length===0) { show("ID, Title এবং প্রশ্ন দিন", "error"); return; }
 
     show("সেভ হচ্ছে...", "success");
-    // আপডেট: duration সহ সেভ
     database.ref('quizzes/'+id).set({ title: title, questions: questions, duration: duration })
         .then(() => { show("সফল!", "success"); genLink(id); })
         .catch(e => show("Error: "+e.message, "error"));
@@ -179,7 +181,7 @@ function loadFirebase() {
         if(d) { 
             quizTitleInput.value=d.title; 
             questions=d.questions||[]; 
-            quizDurationInput.value = d.duration || 90; // আপডেট: সময় লোড
+            quizDurationInput.value = d.duration || 90;
             render(); 
             show("লোড হয়েছে", "success"); 
         }

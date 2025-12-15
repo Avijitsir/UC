@@ -3,36 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Online Test Platform</title>
+    <title>Utkarsh Coaching Exam</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     
-    <script>MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] } };</script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
 </head>
 <body>
 
-    <div id="instructionScreen" class="inst-container">
+    <div id="loginScreen" class="login-container">
+        <div class="login-box">
+            <h2 style="color:#00b5e2;">Utkarsh Coaching</h2>
+            <p>পরীক্ষা শুরু করতে লগইন করুন</p>
+            <input type="text" id="studentName" placeholder="আপনার নাম" class="login-input">
+            <input type="tel" id="studentMobile" placeholder="মোবাইল নম্বর (10 digit)" class="login-input" maxlength="10">
+            <div id="otpSection" style="display:none; margin-top:10px;">
+                <input type="text" id="otpInput" placeholder="4-digit OTP" class="login-input" maxlength="4">
+                <p style="font-size:12px; color:green;">OTP পাঠানো হয়েছে (অ্যালার্ট দেখুন)</p>
+            </div>
+            <button class="tb-btn primary full-width" id="sendOtpBtn">Send OTP</button>
+            <button class="tb-btn primary full-width" id="verifyOtpBtn" style="display:none;">Verify & Start</button>
+        </div>
+    </div>
+
+    <div id="instructionScreen" class="inst-container" style="display:none;">
         <div class="inst-header">
             <h2 class="inst-title" id="instTitle">General Instructions</h2>
             <div class="lang-box">
-                <span id="lblChooseLang">Choose Language: </span>
                 <select class="inst-select" id="langSelector">
                     <option value="en">English</option>
                     <option value="bn">Bengali</option>
                 </select>
             </div>
         </div>
-
-        <div class="inst-content" id="instContent">
-            Loading Instructions...
-        </div>
-
+        <div class="inst-content" id="instContent">Loading...</div>
         <div class="inst-footer">
             <div class="declaration">
                 <input type="checkbox" id="agreeCheck">
-                <label for="agreeCheck" id="agreeLabel">I have read and understood the instructions.</label>
+                <label for="agreeCheck">I have read and understood the instructions.</label>
             </div>
             <button class="begin-btn" id="startTestBtn" disabled>I am ready to begin</button>
         </div>
@@ -42,7 +51,7 @@
         <header class="app-header">
             <div class="header-left">
                 <span class="material-icons menu-icon">menu</span>
-                <span class="app-logo">testbook</span>
+                <span class="app-logo">Utkarsh Coaching</span>
             </div>
             <div class="header-right">
                 <div class="timer-box">
@@ -53,29 +62,10 @@
             </div>
         </header>
 
-        <div class="section-bar">
-            <div class="chip active">General Science</div>
-            <div class="chip">Mathematics</div>
-            <div class="chip">General Intelligence</div>
-            <div class="chip">General Awareness</div>
-        </div>
-
         <div class="q-info-bar">
-            <div class="q-num">
-                Question No. <span id="currentQNum">1</span>
-            </div>
-            <div class="q-meta">
-                <div class="marks-badge">
-                    <span class="plus">+1</span>
-                    <span class="minus">-0.33</span>
-                </div>
-                <div class="lang-select">
-                    View in 
-                    <select id="quizLangSelect" style="border:none; background:transparent; font-weight:bold; color:#333; outline:none;">
-                        <option value="bn" selected>Bengali</option>
-                        <option value="en">English</option>
-                    </select>
-                </div>
+            <div class="q-num">Q. <span id="currentQNum">1</span></div>
+            <div class="lang-select">
+                View in <select id="quizLangSelect" style="border:none; background:transparent; font-weight:bold;"><option value="bn">Bengali</option><option value="en">English</option></select>
             </div>
         </div>
 
@@ -86,8 +76,8 @@
 
         <footer class="app-footer">
             <div class="footer-row">
-                <button class="tb-btn secondary" id="markReviewBtn">Mark for Review & Next</button>
-                <button class="tb-btn secondary" id="clearResponseBtn">Clear Response</button>
+                <button class="tb-btn secondary" id="markReviewBtn">Mark for Review</button>
+                <button class="tb-btn secondary" id="clearResponseBtn">Clear</button>
             </div>
             <div class="footer-row" style="margin-top: 8px;">
                 <button class="tb-btn primary full-width" id="saveNextBtn">Save & Next</button>
@@ -97,67 +87,42 @@
         <div class="drawer-overlay" id="sheetOverlay"></div>
         <div class="side-drawer" id="paletteSheet">
             <div class="drawer-header">
-                <div class="user-info">
-                    <div class="avatar">A</div>
-                    <span>Candidate</span>
-                </div>
+                <div class="user-info"><div class="avatar" id="userAvatar">U</div><span id="userNameDisplay">Student</span></div>
                 <span class="material-icons close-drawer" id="closeSheetBtn">close</span>
             </div>
             <div class="legend-grid">
                 <div class="l-item"><span class="dot answered"></span> Answered</div>
-                <div class="l-item"><span class="dot marked"></span> Marked</div>
-                <div class="l-item"><span class="dot not-visited"></span> Not Visited</div>
-                <div class="l-item"><span class="dot marked-ans"></span> Marked & Ans</div>
                 <div class="l-item"><span class="dot not-answered"></span> Not Answered</div>
+                <div class="l-item"><span class="dot marked"></span> Marked</div>
+                <div class="l-item"><span class="dot marked-ans"></span> Marked & Ans</div>
             </div>
-            <div class="section-header">Questions Palette</div>
-            <div class="drawer-content">
-                <div class="palette-grid" id="paletteGrid"></div>
-            </div>
-            <div class="drawer-footer">
-                <button class="tb-btn submit" id="submitTestBtn">Submit Test</button>
-            </div>
+            <div class="drawer-content"><div class="palette-grid" id="paletteGrid"></div></div>
+            <div class="drawer-footer"><button class="tb-btn submit" id="submitTestBtn">Submit Test</button></div>
         </div>
     </div>
 
     <div id="resultModal" class="modal">
         <div class="modal-content result-box">
-            
             <div class="res-header-pnl">
-                <h2 style="margin:0 0 10px 0; font-size:18px; color:#333; text-align:center;">Test Result Analysis</h2>
-                
+                <h2 style="margin:0 0 10px 0; text-align:center;">Result Analysis</h2>
                 <div class="score-grid">
-                    <div class="s-item">
-                        <span class="lbl">Score</span>
-                        <span class="val" id="resScore">0</span>
-                    </div>
-                    <div class="s-item">
-                        <span class="lbl">Correct</span>
-                        <span class="val green" id="resCorrect">0</span>
-                    </div>
-                    <div class="s-item">
-                        <span class="lbl">Wrong</span>
-                        <span class="val red" id="resWrong">0</span>
-                    </div>
-                    <div class="s-item">
-                        <span class="lbl">Skipped</span>
-                        <span class="val gray" id="resSkip">0</span>
-                    </div>
+                    <div class="s-item"><span class="lbl">Score</span><span class="val" id="resScore">0</span></div>
+                    <div class="s-item"><span class="lbl">Correct</span><span class="val green" id="resCorrect">0</span></div>
+                    <div class="s-item"><span class="lbl">Wrong</span><span class="val red" id="resWrong">0</span></div>
+                    <div class="s-item"><span class="lbl">Skipped</span><span class="val gray" id="resSkip">0</span></div>
                 </div>
-
                 <div class="filter-tabs">
                     <button class="f-btn active" onclick="applyFilter('all')">All</button>
                     <button class="f-btn" onclick="applyFilter('correct')">Correct</button>
                     <button class="f-btn" onclick="applyFilter('wrong')">Wrong</button>
                     <button class="f-btn" onclick="applyFilter('skipped')">Skipped</button>
                 </div>
-
                 <div class="res-palette-scroll" id="resPaletteContainer"></div>
             </div>
 
             <div class="res-content-area" id="resContentArea">
                 <div class="q-info-bar" style="border-bottom:1px solid #eee;">
-                    <div class="q-num">Question No. <span id="resCurrentQNum">1</span></div>
+                    <div class="q-num">Q. <span id="resCurrentQNum">1</span></div>
                     <div class="res-status-badge" id="resQStatusBadge">Correct</div>
                 </div>
                 <div class="content-area" style="padding-bottom: 20px;">
@@ -165,17 +130,14 @@
                     <div class="options-list" id="resOptionsContainer"></div>
                 </div>
             </div>
-            
-            <div id="resEmptyMsg" style="display:none; flex:1; justify-content:center; align-items:center; color:#888;">
-                No questions found in this category.
-            </div>
+            <div id="resEmptyMsg" style="display:none; flex:1; justify-content:center; align-items:center; color:#888;">No questions found.</div>
 
             <div class="result-footer">
                 <div class="footer-row">
                     <button class="tb-btn secondary" id="resPrevBtn">Previous</button>
                     <button class="tb-btn secondary" id="resNextBtn">Next</button>
                 </div>
-                <button class="tb-btn primary full-width" style="margin-top:10px;" onclick="location.reload()">Close & Re-attempt</button>
+                <button class="tb-btn primary full-width" style="margin-top:10px;" onclick="location.reload()">Close</button>
             </div>
         </div>
     </div>

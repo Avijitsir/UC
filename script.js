@@ -48,7 +48,6 @@ function loadQuizFromFirebase(id) {
     db.ref('quizzes/' + id).once('value').then((snapshot) => {
         const data = snapshot.val();
         if (data) {
-            // ১. টাইমার সেট করা
             if (data.duration) {
                 durationMins = parseInt(data.duration);
                 timeLeft = durationMins * 60;
@@ -57,37 +56,23 @@ function loadQuizFromFirebase(id) {
 
             let fetchedQuestions = data.questions || [];
             
-            // ==========================================
-            // ২. প্রশ্ন ওলটপালট করা (Shuffle Questions)
-            // ==========================================
+            // প্রশ্ন ওলটপালট করা (Shuffle Questions)
             fetchedQuestions = shuffleArray(fetchedQuestions);
 
-            // ৩. অপশন ওলটপালট করা এবং ডাটা সাজানো
+            // অপশন ওলটপালট করা এবং ডাটা সাজানো
             allQuestions = fetchedQuestions.map((q) => {
-                
-                // আসল সঠিক উত্তরের ইনডেক্স বের করা
                 const originalCorrectIndex = q.options.indexOf(q.answer);
-                
-                // অপশনগুলোর ইনডেক্স তৈরি করা (যেমন: [0, 1, 2, 3])
                 let indices = Array.from({length: q.options.length}, (_, i) => i);
-                
-                // ==========================================
-                // অপশন ইনডেক্স ওলটপালট করা (Shuffle Options)
-                // ==========================================
                 indices = shuffleArray(indices);
 
-                // ওলটপালট ইনডেক্স অনুযায়ী নতুন অপশন অ্যারে তৈরি
                 const shuffledOptions = indices.map(i => q.options[i]);
-
-                // সঠিক উত্তরটি এখন কোথায় গেল তা খুঁজে বের করা
-                // indices অ্যারেতে খুঁজছি কোথায় originalCorrectIndex লুকিয়ে আছে
                 const newCorrectIndex = indices.indexOf(originalCorrectIndex);
 
                 return {
                     subject: q.subject || "General",
                     question_bn: q.question,
                     question_en: q.question, 
-                    options_bn: shuffledOptions, // ওলটপালট করা অপশন
+                    options_bn: shuffledOptions,
                     options_en: shuffledOptions,
                     correctIndex: newCorrectIndex !== -1 ? newCorrectIndex : 0
                 };
@@ -107,7 +92,6 @@ function loadQuizFromFirebase(id) {
 }
 
 function loadLocalDemoData() {
-    // ডেমো ডাটা (লোকাল টেস্টের জন্য)
     const questionsSource = [
         { subject: "Life Science", question_bn: "ডেমো প্রশ্ন ১", options_bn: ["A", "B", "C", "D"], correctIndex: 0 }
     ];
@@ -281,6 +265,9 @@ function loadQuestion(index) {
         };
         container.appendChild(row);
     });
+
+    // নতুন যোগ করা লাইন: ম্যাথ রেন্ডার করার জন্য
+    if(window.MathJax) { MathJax.typeset(); }
 }
 
 function getSelIdx() { const s = document.querySelector('.option-row.selected'); return s ? Array.from(s.parentNode.children).indexOf(s) : null; }
@@ -436,6 +423,9 @@ function loadResultQuestion(realIdx) {
         if(u===i && u!==c) cls+=' user-wrong';
         con.innerHTML += `<div class="${cls}"><div class="res-circle"></div><div class="res-opt-text">${o}</div></div>`;
     });
+
+    // নতুন যোগ করা লাইন: রেজাল্টেও ম্যাথ ঠিকঠাক দেখাবে
+    if(window.MathJax) { MathJax.typeset(); }
     
     document.getElementById('resPrevBtn').onclick = () => { if(nIdx > 0) loadResultQuestion(filteredIndices[nIdx - 1]); };
     document.getElementById('resNextBtn').onclick = () => { if(nIdx < filteredIndices.length - 1) loadResultQuestion(filteredIndices[nIdx + 1]); };

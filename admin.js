@@ -1,5 +1,4 @@
-// --- Firebase Configuration ---
-// আপনার ফায়ারবেস কনফিগারেশন এখানে বসান
+// --- Firebase Config ---
 const firebaseConfig = {
     apiKey: "AIzaSyDwGzTPmFg-gjoYtNWNJM47p22NfBugYFA",
     authDomain: "mock-test-1eea6.firebaseapp.com",
@@ -14,278 +13,139 @@ const firebaseConfig = {
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
 
-// --- DOM Elements ---
+// Elements
 const quizIdInput = document.getElementById('quiz-id-input');
 const quizTitleInput = document.getElementById('quiz-title-input');
 const loadQuizBtn = document.getElementById('load-quiz-btn');
-const questionSubjectSelect = document.getElementById('question-subject-select');
+const subjectSelect = document.getElementById('question-subject-select');
+const qText = document.getElementById('question-text-input');
+const o1 = document.getElementById('option1-input');
+const o2 = document.getElementById('option2-input');
+const o3 = document.getElementById('option3-input');
+const o4 = document.getElementById('option4-input');
+const cOpt = document.getElementById('correct-option-select');
+const addBtn = document.getElementById('add-question-btn');
+const updBtn = document.getElementById('update-question-btn');
+const saveBtn = document.getElementById('save-quiz-btn');
+const bulkBtn = document.getElementById('process-bulk-btn');
+const qContainer = document.getElementById('questions-container');
+const bulkText = document.getElementById('bulk-input-textarea');
+const statusMsg = document.getElementById('status-message');
+const linkBox = document.getElementById('share-link-box');
+const linkInput = document.getElementById('generated-link');
 
-// Single Add Inputs
-const questionTextInput = document.getElementById('question-text-input');
-const option1Input = document.getElementById('option1-input');
-const option2Input = document.getElementById('option2-input');
-const option3Input = document.getElementById('option3-input');
-const option4Input = document.getElementById('option4-input');
-const correctOptionSelect = document.getElementById('correct-option-select');
+let questions = [];
+let editIdx = -1;
 
-// Buttons
-const addQuestionBtn = document.getElementById('add-question-btn');
-const updateQuestionBtn = document.getElementById('update-question-btn');
-const saveQuizBtn = document.getElementById('save-quiz-btn');
-const processBulkBtn = document.getElementById('process-bulk-btn');
+// --- Listeners ---
+addBtn.addEventListener('click', addQ);
+updBtn.addEventListener('click', updQ);
+bulkBtn.addEventListener('click', procBulk);
+saveBtn.addEventListener('click', saveFirebase);
+loadQuizBtn.addEventListener('click', loadFirebase);
 
-// Lists & Bulk
-const questionsContainer = document.getElementById('questions-container');
-const bulkInputTextarea = document.getElementById('bulk-input-textarea');
-const statusMessage = document.getElementById('status-message');
-const shareLinkBox = document.getElementById('share-link-box');
-const generatedLinkInput = document.getElementById('generated-link');
-
-// State
-let currentQuizQuestions = [];
-let editingIndex = -1;
-
-// --- Event Listeners ---
-addQuestionBtn.addEventListener('click', addSingleQuestion);
-updateQuestionBtn.addEventListener('click', updateSingleQuestion);
-processBulkBtn.addEventListener('click', processBulkInput);
-saveQuizBtn.addEventListener('click', saveToFirebase);
-loadQuizBtn.addEventListener('click', loadFromFirebase);
-
-// --- 1. Single Question Logic ---
-function getFormData() {
-    const subj = questionSubjectSelect.value;
-    const qText = questionTextInput.value.trim();
-    const o1 = option1Input.value.trim();
-    const o2 = option2Input.value.trim();
-    const o3 = option3Input.value.trim();
-    const o4 = option4Input.value.trim();
-    const correctIdx = correctOptionSelect.value;
-
-    if (!qText || !o1 || !o2 || !o3 || !o4 || !correctIdx) {
-        showStatus("সব তথ্য পূরণ করুন!", "error");
-        return null;
-    }
-
-    const opts = [o1, o2, o3, o4];
-    return {
-        subject: subj,
-        question: qText,
-        options: opts,
-        answer: opts[parseInt(correctIdx)] // Storing actual answer text
-    };
+// --- 1. Single Add ---
+function getForm() {
+    const s = subjectSelect.value;
+    const q = qText.value.trim();
+    const ops = [o1.value.trim(), o2.value.trim(), o3.value.trim(), o4.value.trim()];
+    const c = cOpt.value;
+    if(!q || ops.some(o=>!o) || !c) { show("সব তথ্য দিন!", "error"); return null; }
+    return { subject: s, question: q, options: ops, answer: ops[parseInt(c)] };
 }
-
-function addSingleQuestion() {
-    const data = getFormData();
-    if (!data) return;
-    currentQuizQuestions.push(data);
-    renderList();
-    clearForm();
-    showStatus("প্রশ্ন যোগ হয়েছে!", "success");
+function addQ() { const d = getForm(); if(d) { questions.push(d); render(); clear(); show("প্রশ্ন যোগ হয়েছে", "success"); } }
+function editQ(i) {
+    const q = questions[i];
+    subjectSelect.value = q.subject || "General Knowledge";
+    qText.value = q.question;
+    o1.value = q.options[0]; o2.value = q.options[1];
+    o3.value = q.options[2]; o4.value = q.options[3];
+    cOpt.value = q.options.indexOf(q.answer);
+    editIdx = i;
+    addBtn.style.display='none'; updBtn.style.display='block';
+    document.getElementById('question-form').scrollIntoView({behavior:"smooth"});
 }
-
-function editQuestion(index) {
-    const q = currentQuizQuestions[index];
-    
-    questionSubjectSelect.value = q.subject || "General Knowledge";
-    questionTextInput.value = q.question;
-    option1Input.value = q.options[0];
-    option2Input.value = q.options[1];
-    option3Input.value = q.options[2];
-    option4Input.value = q.options[3];
-    
-    // Find correct index
-    const cIdx = q.options.indexOf(q.answer);
-    correctOptionSelect.value = cIdx > -1 ? cIdx : "";
-
-    editingIndex = index;
-    addQuestionBtn.style.display = 'none';
-    updateQuestionBtn.style.display = 'block';
-    document.getElementById('question-form').scrollIntoView({behavior: "smooth"});
+function updQ() {
+    const d = getForm();
+    if(d) { questions[editIdx] = d; editIdx = -1; addBtn.style.display='block'; updBtn.style.display='none'; render(); clear(); show("আপডেট হয়েছে", "success"); }
 }
+function delQ(i) { if(confirm("মুছে ফেলবেন?")) { questions.splice(i, 1); render(); } }
+function clear() { qText.value=''; o1.value=''; o2.value=''; o3.value=''; o4.value=''; cOpt.value=''; }
 
-function updateSingleQuestion() {
-    const data = getFormData();
-    if (!data) return;
-    currentQuizQuestions[editingIndex] = data;
-    editingIndex = -1;
-    addQuestionBtn.style.display = 'block';
-    updateQuestionBtn.style.display = 'none';
-    renderList();
-    clearForm();
-    showStatus("আপডেট হয়েছে!", "success");
-}
-
-function deleteQuestion(index) {
-    if (confirm("মুছে ফেলতে চান?")) {
-        currentQuizQuestions.splice(index, 1);
-        renderList();
-    }
-}
-
-function clearForm() {
-    questionTextInput.value = '';
-    option1Input.value = '';
-    option2Input.value = '';
-    option3Input.value = '';
-    option4Input.value = '';
-    correctOptionSelect.value = '';
-}
-
-// --- 2. Bulk Add Logic (Updated Format) ---
-function processBulkInput() {
-    const rawText = bulkInputTextarea.value.trim();
-    const selectedSubject = questionSubjectSelect.value; // Use global selector for bulk
-
-    if (!rawText) {
-        showStatus("বক্স খালি!", "error");
-        return;
-    }
-
-    // Split by double newline (Empty line separator)
-    const blocks = rawText.split(/\n\s*\n/);
-    let addedCount = 0;
-    let errorCount = 0;
-
-    blocks.forEach((block, idx) => {
-        // Split block into lines and remove empty ones
-        const lines = block.trim().split('\n').map(l => l.trim()).filter(l => l !== "");
-        
-        // We expect: Q, Opt1, Opt2, Opt3, Opt4, Answer: ... (At least 6 lines)
-        if (lines.length >= 6) {
-            const qText = lines[0];
-            const opts = [lines[1], lines[2], lines[3], lines[4]];
-            
-            // Find answer line (starts with "Answer:")
+// --- 2. Bulk Add ---
+function procBulk() {
+    const txt = bulkText.value.trim();
+    const sub = subjectSelect.value;
+    if(!txt) return;
+    const blocks = txt.split(/\n\s*\n/);
+    let count = 0;
+    blocks.forEach(b => {
+        const lines = b.trim().split('\n').map(l=>l.trim()).filter(l=>l);
+        if(lines.length >= 6) {
+            const qt = lines[0];
+            const ops = [lines[1], lines[2], lines[3], lines[4]];
             const ansLine = lines.find(l => l.toLowerCase().startsWith("answer:"));
-            
-            if (ansLine) {
-                // Extract answer text (remove "Answer:" prefix)
-                const ansText = ansLine.replace(/^answer:\s*/i, "").trim();
-                
-                // Verify answer exists in options
-                if (opts.includes(ansText)) {
-                    currentQuizQuestions.push({
-                        subject: selectedSubject,
-                        question: qText,
-                        options: opts,
-                        answer: ansText
-                    });
-                    addedCount++;
-                } else {
-                    console.warn(`Block ${idx+1}: Answer '${ansText}' not found in options.`);
-                    errorCount++;
-                }
-            } else {
-                console.warn(`Block ${idx+1}: 'Answer:' line missing.`);
-                errorCount++;
+            if(ansLine) {
+                const ans = ansLine.replace(/^answer:\s*/i, "").trim();
+                if(ops.includes(ans)) { questions.push({ subject: sub, question: qt, options: ops, answer: ans }); count++; }
             }
-        } else {
-            console.warn(`Block ${idx+1}: Not enough lines.`);
-            errorCount++;
         }
     });
-
-    if (addedCount > 0) {
-        renderList();
-        bulkInputTextarea.value = '';
-        showStatus(`${addedCount} টি প্রশ্ন (${selectedSubject}) যোগ হয়েছে। ${errorCount > 0 ? errorCount + ' টি এরর।' : ''}`, "success");
-    } else {
-        showStatus("কোনো প্রশ্ন যোগ করা যায়নি। ফরম্যাট চেক করুন।", "error");
-    }
+    if(count>0) { render(); bulkText.value=''; show(`${count} টি প্রশ্ন যোগ হয়েছে`, "success"); }
+    else show("ফরম্যাট সঠিক নয়", "error");
 }
 
-// --- 3. Render List ---
-function renderList() {
-    questionsContainer.innerHTML = '';
-    document.getElementById('questions-list-header').innerText = `৩. প্রশ্ন তালিকা (${currentQuizQuestions.length})`;
-
-    currentQuizQuestions.forEach((q, i) => {
-        const div = document.createElement('div');
-        div.className = 'q-card';
-        
-        let optsHtml = '';
-        q.options.forEach(o => {
-            const cls = (o === q.answer) ? 'class="correct"' : '';
-            optsHtml += `<li ${cls}>${o}</li>`;
-        });
-
-        div.innerHTML = `
-            <div class="q-header">
-                <span class="subject-tag">${q.subject}</span>
-                <div class="card-actions">
-                    <span class="action-btn btn-edit" onclick="editQuestion(${i})"><span class="material-icons" style="font-size:16px;">edit</span></span>
-                    <span class="action-btn btn-delete" onclick="deleteQuestion(${i})"><span class="material-icons" style="font-size:16px;">delete</span></span>
-                </div>
-            </div>
-            <span class="q-text">Q${i+1}. ${q.question}</span>
-            <ul class="q-options">${optsHtml}</ul>
-        `;
-        questionsContainer.appendChild(div);
+function render() {
+    qContainer.innerHTML = '';
+    document.getElementById('questions-list-header').innerText = `প্রশ্ন তালিকা (${questions.length})`;
+    questions.forEach((q, i) => {
+        const div = document.createElement('div'); div.className = 'q-card';
+        let oh = ''; q.options.forEach(o => oh += `<li ${o===q.answer?'class="correct"':''}>${o}</li>`);
+        div.innerHTML = `<div class="q-header"><span class="subject-tag">${q.subject}</span><div class="card-actions"><span class="action-btn btn-edit" onclick="editQ(${i})"><span class="material-icons" style="font-size:16px;">edit</span></span><span class="action-btn btn-delete" onclick="delQ(${i})"><span class="material-icons" style="font-size:16px;">delete</span></span></div></div><span class="q-text">Q${i+1}. ${q.question}</span><ul class="q-options">${oh}</ul>`;
+        qContainer.appendChild(div);
     });
 }
 
-// --- 4. Firebase Operations ---
-function saveToFirebase() {
+// --- 3. Save & Load ---
+function saveFirebase() {
     const id = quizIdInput.value.trim();
     const title = quizTitleInput.value.trim();
-
-    if (!id || !title || currentQuizQuestions.length === 0) {
-        showStatus("ID, Title এবং প্রশ্ন আবশ্যক!", "error");
-        return;
-    }
-
-    showStatus("সেভ হচ্ছে...", "success");
-    
-    // Save quiz data
-    database.ref('quizzes/' + id).set({
-        title: title,
-        questions: currentQuizQuestions
-    }).then(() => {
-        showStatus("সফল! কুইজ সেভ হয়েছে।", "success");
-        generateLink(id);
-    }).catch(e => showStatus("Error: " + e.message, "error"));
+    if(!id || !title || questions.length===0) { show("ID, Title এবং প্রশ্ন দিন", "error"); return; }
+    show("সেভ হচ্ছে...", "success");
+    database.ref('quizzes/'+id).set({ title: title, questions: questions }).then(() => { show("সফল!", "success"); genLink(id); }).catch(e => show("Error: "+e.message, "error"));
 }
-
-function loadFromFirebase() {
+function genLink(id) {
+    const url = window.location.href.replace('admin.html', 'index.html').split('?')[0] + '?id=' + id;
+    linkInput.value = url; linkBox.style.display = 'block'; linkBox.scrollIntoView({behavior:"smooth"});
+}
+function copyToClipboard() { linkInput.select(); document.execCommand("copy"); alert("লিংক কপি হয়েছে!"); }
+function loadFirebase() {
     const id = quizIdInput.value.trim();
-    if (!id) { showStatus("Quiz ID দিন", "error"); return; }
-
-    shareLinkBox.style.display = 'none';
-    showStatus("লোড হচ্ছে...", "success");
-
-    database.ref('quizzes/' + id).once('value').then(snapshot => {
-        const data = snapshot.val();
-        if (data) {
-            quizTitleInput.value = data.title;
-            currentQuizQuestions = data.questions || [];
-            renderList();
-            showStatus("ডেটা লোড হয়েছে!", "success");
-        } else {
-            showStatus("কুইজ পাওয়া যায়নি।", "error");
-        }
+    if(!id) { show("ID দিন", "error"); return; }
+    linkBox.style.display='none';
+    database.ref('quizzes/'+id).once('value').then(s => {
+        const d = s.val();
+        if(d) { quizTitleInput.value=d.title; questions=d.questions||[]; render(); show("লোড হয়েছে", "success"); }
+        else show("পাওয়া যায়নি", "error");
     });
 }
 
-function generateLink(id) {
-    const baseUrl = window.location.href.replace('admin.html', 'index.html');
-    const link = `${baseUrl.split('?')[0]}?id=${id}`;
-    generatedLinkInput.value = link;
-    shareLinkBox.style.display = 'block';
-    shareLinkBox.scrollIntoView({behavior:"smooth"});
-}
+// --- 4. Result Viewer ---
+document.getElementById('view-results-btn').addEventListener('click', () => {
+    const qId = document.getElementById('result-quiz-id').value.trim();
+    if(!qId) { show("Quiz ID দিন", "error"); return; }
+    const con = document.getElementById('results-table-container');
+    con.innerHTML = "লোড হচ্ছে...";
+    database.ref('results/' + qId).once('value').then(s => {
+        const d = s.val();
+        if(d) {
+            let h = `<table style="width:100%; border-collapse:collapse; font-size:14px; min-width:500px;"><tr style="background:#eee;"><th style="border:1px solid #ddd;padding:8px;">Name</th><th style="border:1px solid #ddd;padding:8px;">Mobile</th><th style="border:1px solid #ddd;padding:8px;">Score</th><th style="border:1px solid #ddd;padding:8px;">R/W</th><th style="border:1px solid #ddd;padding:8px;">Time</th></tr>`;
+            Object.values(d).forEach(st => {
+                h += `<tr><td style="border:1px solid #ddd;padding:8px;">${st.name}</td><td style="border:1px solid #ddd;padding:8px;">${st.mobile}</td><td style="border:1px solid #ddd;padding:8px;font-weight:bold;color:${st.score>=0?'green':'red'}">${st.score}</td><td style="border:1px solid #ddd;padding:8px;">✅${st.correct}/❌${st.wrong}</td><td style="border:1px solid #ddd;padding:8px;font-size:12px;">${st.timestamp?new Date(st.timestamp).toLocaleTimeString():'-'}</td></tr>`;
+            });
+            con.innerHTML = h + "</table>"; show("রেজাল্ট লোড হয়েছে!", "success");
+        } else { con.innerHTML = "কোনো রেজাল্ট নেই।"; show("কোনো রেজাল্ট পাওয়া যায়নি", "error"); }
+    });
+});
 
-function copyToClipboard() {
-    generatedLinkInput.select();
-    generatedLinkInput.setSelectionRange(0, 99999);
-    document.execCommand("copy");
-    alert("লিংক কপি হয়েছে!");
-}
-
-function showStatus(msg, type) {
-    statusMessage.innerText = msg;
-    statusMessage.className = type;
-    statusMessage.style.display = 'block';
-    setTimeout(() => statusMessage.style.display = 'none', 3000);
-}
+function show(m, t) { statusMsg.innerText = m; statusMsg.className = t; statusMsg.style.display='block'; setTimeout(()=>statusMsg.style.display='none', 3000); }

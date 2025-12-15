@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Admin Panel</title>
+    <link rel="stylesheet" href="admin.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body>
+
+    <div class="container">
+        <h1>কুইজ কন্ট্রোল প্যানেল</h1>
+        <div id="status-message"></div>
+
+        <div class="form-section">
+            <h2>১. কুইজের তথ্য</h2>
+            <div class="input-group">
+                <div>
+                    <label>Quiz ID (Unique & English)</label>
+                    <input type="text" id="quiz-id-input" placeholder="ex: history_mock_01">
+                </div>
+                <button id="load-quiz-btn" class="secondary-btn">পুরানো কুইজ লোড করুন</button>
+            </div>
+            <label>কুইজের নাম (Title)</label>
+            <input type="text" id="quiz-title-input" placeholder="ex: WBP Constable Full Mock Test">
+        </div>
+
+        <div class="form-section" style="background: #e3f2fd; border-color: #90caf9;">
+            <label style="color:#0d47a1; font-size: 1.1em;">বিষয় নির্বাচন করুন (Subject):</label>
+            <select id="question-subject-select" style="border: 2px solid #2196f3; font-weight: bold;">
+                <option value="General Knowledge">General Knowledge</option>
+                <option value="Mathematics">Mathematics</option>
+                <option value="General Science">General Science</option>
+                <option value="English">English</option>
+                <option value="Reasoning">Reasoning</option>
+                <option value="History">History</option>
+                <option value="Geography">Geography</option>
+            </select>
+            <small style="display:block; margin-top:5px; color:#555;">(সিঙ্গেল বা বাল্ক অ্যাড করার আগে এখান থেকে বিষয় সিলেক্ট করে নিন)</small>
+        </div>
+
+        <div class="form-section" id="question-form">
+            <h2>২. প্রশ্ন যোগ করুন (একটি করে)</h2>
+            
+            <label>প্রশ্ন:</label>
+            <textarea id="question-text-input" rows="3" placeholder="প্রশ্নটি এখানে লিখুন..."></textarea>
+
+            <div class="options-grid">
+                <div><label>Option A</label><input type="text" id="option1-input"></div>
+                <div><label>Option B</label><input type="text" id="option2-input"></div>
+                <div><label>Option C</label><input type="text" id="option3-input"></div>
+                <div><label>Option D</label><input type="text" id="option4-input"></div>
+            </div>
+
+            <label class="correct-answer-label">সঠিক উত্তর কোনটি?</label>
+            <select id="correct-option-select">
+                <option value="">বাছাই করুন...</option>
+                <option value="0">Option A</option>
+                <option value="1">Option B</option>
+                <option value="2">Option C</option>
+                <option value="3">Option D</option>
+            </select>
+
+            <button id="add-question-btn">তালিকায় যোগ করুন</button>
+            <button id="update-question-btn" style="display:none; background-color:#ffc107; color:black;">আপডেট করুন</button>
+        </div>
+
+        <div class="form-section">
+            <h2>অথবা, বাল্ক অ্যাড (Bulk Add)</h2>
+            <p style="font-size:13px; color:#666; background:#fff; padding:10px; border:1px solid #ddd;">
+                <strong>ফরম্যাট:</strong><br>
+                লাইন ১: প্রশ্ন<br>
+                লাইন ২-৫: ৪টি অপশন<br>
+                লাইন ৬: Answer: সঠিক উত্তর<br>
+                লাইন ৭: (খালি লাইন)
+            </p>
+            <textarea id="bulk-input-textarea" rows="10" placeholder="ফরম্যাট মেনে প্রশ্নগুলো এখানে পেস্ট করুন..."></textarea>
+            <button id="process-bulk-btn" style="background-color: #673ab7;">বাল্ক প্রসেস করুন</button>
+        </div>
+
+        <div class="preview-section">
+            <h2 id="questions-list-header">৩. প্রশ্ন তালিকা (0)</h2>
+            <div id="questions-container"></div>
+        </div>
+
+        <div class="save-section">
+            <button id="save-quiz-btn">💾 সেভ এবং লিংক তৈরি করুন</button>
+            
+            <div id="share-link-box" style="display:none; margin-top: 20px; background:#e8f5e9; padding:15px; border:1px solid #4caf50; border-radius:5px;">
+                <h3 style="color:#2e7d32; margin-top:0;">🎉 কুইজ তৈরি হয়েছে!</h3>
+                <input type="text" id="generated-link" style="width:100%; color:#000; font-weight:bold;" readonly>
+                <button onclick="copyToClipboard()" style="background:#2e7d32; margin-top:10px;">📋 লিংক কপি করুন</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>

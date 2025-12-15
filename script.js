@@ -18,7 +18,7 @@ if (typeof firebase !== 'undefined' && !firebase.apps.length) {
 
 // --- Globals ---
 let questions = [];
-let allQuestions = []; // সব প্রশ্ন এখানে থাকবে
+let allQuestions = [];
 let currentIdx = 0;
 let status, userAnswers;
 let isSubmitted = false;
@@ -28,7 +28,7 @@ let durationMins = 90;
 let timeLeft = durationMins * 60;
 let isPaused = false;
 let filteredIndices = [];
-let activeSubject = 'All'; // বর্তমানে কোন সাবজেক্ট সিলেক্টেড
+let activeSubject = 'All';
 
 // --- Init & Data Loading ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -48,6 +48,7 @@ function loadQuizFromFirebase(id) {
     db.ref('quizzes/' + id).once('value').then((snapshot) => {
         const data = snapshot.val();
         if (data) {
+            // ১. টাইমার সেট করা
             if (data.duration) {
                 durationMins = parseInt(data.duration);
                 timeLeft = durationMins * 60;
@@ -56,23 +57,43 @@ function loadQuizFromFirebase(id) {
 
             let fetchedQuestions = data.questions || [];
             
-            // ডাটা প্রসেস করা
-            allQuestions = fetchedQuestions.map((q, index) => {
+            // ==========================================
+            // ২. প্রশ্ন ওলটপালট করা (Shuffle Questions)
+            // ==========================================
+            fetchedQuestions = shuffleArray(fetchedQuestions);
+
+            // ৩. অপশন ওলটপালট করা এবং ডাটা সাজানো
+            allQuestions = fetchedQuestions.map((q) => {
+                
+                // আসল সঠিক উত্তরের ইনডেক্স বের করা
+                const originalCorrectIndex = q.options.indexOf(q.answer);
+                
+                // অপশনগুলোর ইনডেক্স তৈরি করা (যেমন: [0, 1, 2, 3])
+                let indices = Array.from({length: q.options.length}, (_, i) => i);
+                
+                // ==========================================
+                // অপশন ইনডেক্স ওলটপালট করা (Shuffle Options)
+                // ==========================================
+                indices = shuffleArray(indices);
+
+                // ওলটপালট ইনডেক্স অনুযায়ী নতুন অপশন অ্যারে তৈরি
+                const shuffledOptions = indices.map(i => q.options[i]);
+
+                // সঠিক উত্তরটি এখন কোথায় গেল তা খুঁজে বের করা
+                // indices অ্যারেতে খুঁজছি কোথায় originalCorrectIndex লুকিয়ে আছে
+                const newCorrectIndex = indices.indexOf(originalCorrectIndex);
+
                 return {
-                    originalIndex: index, // আসল ইনডেক্স মনে রাখা
-                    subject: q.subject || "General", // সাবজেক্ট না থাকলে General
+                    subject: q.subject || "General",
                     question_bn: q.question,
                     question_en: q.question, 
-                    options_bn: q.options,
-                    options_en: q.options,
-                    correctIndex: q.options.indexOf(q.answer) !== -1 ? q.options.indexOf(q.answer) : 0
+                    options_bn: shuffledOptions, // ওলটপালট করা অপশন
+                    options_en: shuffledOptions,
+                    correctIndex: newCorrectIndex !== -1 ? newCorrectIndex : 0
                 };
             });
             
-            // সব প্রশ্নকে মেইন অ্যারেতে রাখা (ডিফল্ট)
-            questions = allQuestions; 
-            
-            // ট্যাব জেনারেট করা
+            questions = allQuestions;
             generateSubjectTabs();
             startQuizSetup();
 
@@ -86,10 +107,9 @@ function loadQuizFromFirebase(id) {
 }
 
 function loadLocalDemoData() {
-    // ডেমো ডাটা
+    // ডেমো ডাটা (লোকাল টেস্টের জন্য)
     const questionsSource = [
-        { subject: "Life Science", question_bn: "ডেমো প্রশ্ন ১", options_bn: ["A", "B", "C", "D"], correctIndex: 0 },
-        { subject: "History", question_bn: "ডেমো প্রশ্ন ২", options_bn: ["A", "B", "C", "D"], correctIndex: 1 }
+        { subject: "Life Science", question_bn: "ডেমো প্রশ্ন ১", options_bn: ["A", "B", "C", "D"], correctIndex: 0 }
     ];
     allQuestions = questionsSource;
     questions = allQuestions;
@@ -101,20 +121,17 @@ function loadLocalDemoData() {
 function generateSubjectTabs() {
     const container = document.getElementById('sectionTabsContainer');
     if(!container) return;
-    container.innerHTML = ''; // আগের সব মুছে ফেলা
+    container.innerHTML = ''; 
 
-    // ১. সব ইউনিক সাবজেক্ট বের করা
     const subjects = ['All', ...new Set(allQuestions.map(q => q.subject))];
 
-    // ২. যদি মাত্র ১টি সাবজেক্ট থাকে (যেমন শুধু History), তাহলে ট্যাব দেখানোর দরকার নেই
-    if (subjects.length <= 2) { // 'All' + 'History' = 2
+    if (subjects.length <= 2) { 
         container.style.display = 'none';
         return;
     } else {
         container.style.display = 'flex';
     }
 
-    // ৩. বাটন তৈরি করা
     subjects.forEach(sub => {
         const chip = document.createElement('div');
         chip.className = 'chip';
@@ -128,19 +145,13 @@ function generateSubjectTabs() {
 
 function filterBySubject(subject) {
     activeSubject = subject;
-    
-    // ১. ট্যাব এক্টিভ করা
     document.querySelectorAll('.chip').forEach(c => {
         c.classList.remove('active');
         if(c.innerText === subject) c.classList.add('active');
     });
 
-    // ২. প্রশ্ন ফিল্টার করা (এটা একটু ট্রিকি, আমরা শুধু ভিউ চেঞ্জ করব না, জাম্প করব)
-    // পরীক্ষায় সাধারণত ফিল্টার করলে শুধু ওই সাবজেক্টের প্রশ্ন আসে না, বরং ওই সাবজেক্টের প্রথম প্রশ্নে জাম্প করে।
-    // আমরা সহজ করার জন্য ওই সাবজেক্টের প্রথম প্রশ্নে নিয়ে যাব।
-    
     if (subject === 'All') {
-        // কিছু করার দরকার নেই
+        // Do nothing specific
     } else {
         const firstQIndex = questions.findIndex(q => q.subject === subject);
         if (firstQIndex !== -1) {
@@ -152,16 +163,12 @@ function filterBySubject(subject) {
 }
 
 function startQuizSetup() {
-    // স্ট্যাটাস অ্যারে মেইন প্রশ্ন সংখ্যার সমান হতে হবে
     status = new Array(questions.length).fill(0); 
     userAnswers = new Array(questions.length).fill(null); 
     updateInstructions('en'); 
 }
 
-// --- বাকি সব ফাংশন আগের মতোই ---
-// (এখানে আগের কোডগুলো যেমন shuffleArray, updateInstructions, loadQuestion, Timer, Submit সব একই থাকবে)
-// শুধু loadQuestion ফাংশনে একটু আপডেট দরকার যাতে সাবজেক্ট দেখা যায়।
-
+// --- Utility: Shuffle Function ---
 function shuffleArray(array) {
     for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -170,6 +177,7 @@ function shuffleArray(array) {
     return array;
 }
 
+// --- Instructions & Navigation ---
 const translations = {
     en: {
         title: "General Instructions",
@@ -243,7 +251,7 @@ function loadQuestion(index) {
     document.getElementById('currentQNum').innerText = index + 1;
     const q = questions[index];
     
-    // সাবজেক্ট আপডেট করা (যদি ইউজার ম্যানুয়ালি নেক্সট করে অন্য সাবজেক্টে যায়, ট্যাব আপডেট হবে)
+    // Auto-update Tab
     if(q.subject && document.getElementById('sectionTabsContainer').style.display !== 'none') {
         document.querySelectorAll('.chip').forEach(c => {
            if(c.innerText === q.subject) {

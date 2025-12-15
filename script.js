@@ -56,10 +56,10 @@ function loadQuizFromFirebase(id) {
 
             let fetchedQuestions = data.questions || [];
             
-            // প্রশ্ন ওলটপালট করা (Shuffle Questions)
+            // Shuffle Questions
             fetchedQuestions = shuffleArray(fetchedQuestions);
 
-            // অপশন ওলটপালট করা এবং ডাটা সাজানো
+            // Shuffle Options & Process Data
             allQuestions = fetchedQuestions.map((q) => {
                 const originalCorrectIndex = q.options.indexOf(q.answer);
                 let indices = Array.from({length: q.options.length}, (_, i) => i);
@@ -152,7 +152,7 @@ function startQuizSetup() {
     updateInstructions('en'); 
 }
 
-// --- Utility: Shuffle Function ---
+// --- Utility: Shuffle ---
 function shuffleArray(array) {
     for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -219,12 +219,31 @@ function updateInstructions(lang) {
 langSelector.addEventListener('change', (e) => { updateInstructions(e.target.value); });
 document.getElementById('agreeCheck').addEventListener('change', (e) => { document.getElementById('startTestBtn').disabled = !e.target.checked; });
 
+// --- START TEST & FULL SCREEN LOGIC ---
 document.getElementById('startTestBtn').addEventListener('click', () => {
+    // 1. UI Change
     document.getElementById('instructionScreen').style.display = 'none';
     document.getElementById('quizMainArea').style.display = 'block';
+    
+    // 2. Trigger Full Screen
+    enterFullScreen();
+
+    // 3. Start Quiz
     loadQuestion(0);
     startTimer();
 });
+
+// Full Screen Helper Function
+function enterFullScreen() {
+    var elem = document.documentElement;
+    if (elem.requestFullscreen) {
+        elem.requestFullscreen().catch(err => console.log(err));
+    } else if (elem.webkitRequestFullscreen) { /* Safari */
+        elem.webkitRequestFullscreen();
+    } else if (elem.msRequestFullscreen) { /* IE11 */
+        elem.msRequestFullscreen();
+    }
+}
 
 // --- Quiz Display ---
 document.getElementById('quizLangSelect').addEventListener('change', (e) => { currentLang = e.target.value; loadQuestion(currentIdx); });
@@ -266,7 +285,6 @@ function loadQuestion(index) {
         container.appendChild(row);
     });
 
-    // নতুন যোগ করা লাইন: ম্যাথ রেন্ডার করার জন্য
     if(window.MathJax) { MathJax.typeset(); }
 }
 
@@ -351,6 +369,9 @@ function submitTest() {
     if(isSubmitted) return;
     isSubmitted = true;
     clearInterval(timerInterval);
+    
+    // Exit Full Screen on Submit
+    if (document.exitFullscreen) { document.exitFullscreen().catch(e=>{}); }
 
     let s=0, c=0, w=0, sk=0;
     questions.forEach((q, i) => { 
@@ -424,7 +445,6 @@ function loadResultQuestion(realIdx) {
         con.innerHTML += `<div class="${cls}"><div class="res-circle"></div><div class="res-opt-text">${o}</div></div>`;
     });
 
-    // নতুন যোগ করা লাইন: রেজাল্টেও ম্যাথ ঠিকঠাক দেখাবে
     if(window.MathJax) { MathJax.typeset(); }
     
     document.getElementById('resPrevBtn').onclick = () => { if(nIdx > 0) loadResultQuestion(filteredIndices[nIdx - 1]); };

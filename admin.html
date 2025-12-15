@@ -6,6 +6,9 @@
     <title>Admin Panel</title>
     <link rel="stylesheet" href="admin.css">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <script>MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] } };</script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 
@@ -40,6 +43,7 @@
 
         <div class="form-section" id="question-form">
             <h2>২. প্রশ্ন যোগ করুন</h2>
+            <p style="font-size:12px; color:#666;">টিপস: অংক লিখতে $ চিহ্ন ব্যবহার করুন। যেমন: $x^2$ বা $\sqrt{25}$</p>
             <label>প্রশ্ন:</label>
             <textarea id="question-text-input" rows="3" placeholder="প্রশ্ন লিখুন..."></textarea>
 
